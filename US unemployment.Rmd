@@ -1,0 +1,112 @@
+---
+title: "CW1 210123027"
+author: "Lady Angel Mae Navarra"
+date: "14/03/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+title: "TS CW1"
+author: "Lady Angel Mae Navarra"
+date: "06/03/2024"
+output: html_document
+---
+
+## Coursework 1: US Unemployment 1948-1978
+
+We are trying to project the monthly US unemployment from 1948-1978 and look at the impact of economic reasons and how it changes unemployment.
+
+```{r}
+library(astsa)
+plot(unemp)
+summary(unemp)
+d= decompose(unemp)
+plot(d)
+```
+
+Our time series has formula of
+  Xt=Mt+St+Yt 
+
+-Mt means that there is a trend evident where there is an increase from year 1968 to year 1975.
+
+-St means seasonal effect an in out project there is a constant seasonality of unemployment throughout the period.
+
+Yt means noise where there are heteroskedacity evident in the data thus might need to re-scale in order to reduce the noise.
+
+### Trend
+```{r}
+library (signal)
+d$trend
+plot (unemp)
+lines ( stats :: filter (unemp, spencerFilter ()), type ="l", col="red")
+q = 15
+a = rep (1/(2*q+1) , 2*q+1)
+m=stats :: filter (unemp , a )
+plot(unemp)
+lines (m , type ="l", col=" blue ")
+```
+
+We use Spencer filter so we can make the trend smoother and from the graph above we can see that there is an increase in unemployment due to the fact that in 1965 US entered Vietnam War which causes a rise in unemployment to be evident from 1969 to 1973 where the Vietnam War ended. Unemployment further increases due to recession in 1980. 
+
+### Seasonality
+
+```{r}
+d$seasonal
+```
+There is a seasonality in our time series where based from the data during Christmas season, more people are getting temporary job and then after holidays,unemployment increases. Every January, unmeployment increases 46.751157.
+
+We will now use Holt Winters method and forecast two years ahead.
+
+```{r}
+s=HoltWinters(unemp, seasonal = "multiplicative")
+plot(s)
+p= predict(s,8)
+plot(s,p)
+library(mosaic)
+msummary(unemp)
+```
+We can see that in 2 years time, seasonality will still affect unemployment as people will get temporary job during holidays and after holidays unemployment will rise.
+
+For further Visualisation of unemployment by the end of December:
+```{r}
+library(dygraphs)
+dygraph(unemp, main = "US Unemployment") %>% 
+  dyRangeSelector(dateWindow = c("1967-12-30", "1973-12-30"))
+```
+
+We can see that unemployment increases by the end of December 1969 from 262.7 to 340.6 which further proves seasonal unemployment.
+
+### Forecasting 
+An alternative forecasting system that we are going to use is prophet where it forecast trend and seasonality. 
+
+```{r}
+library(zoo)
+unemp.df= data.frame(ds=zoo:: as.yearmon(time(unemp)),y=unemp)
+library(prophet)
+m = prophet::prophet(unemp.df) # We will fit the model.
+f = prophet::make_future_dataframe(m, periods=8, freq="quarter")
+p = predict(m, f)
+plot(m,p)
+prophet_plot_components(m,p)
+```
+
+In here, we can see that unemployment will continue to increase throughout the years by looking at the trend and there will be seasonal employment that will occur where people will get jobs during December that is why unemployment decreases and unemployment will then increase every January.
+ 
+### Heteroscedasticity
+
+We are going to use Breusch-Pagan test to test if our time series is heteroskedastic (variability in errors is not constant). By running the test we have assumed that our H0: there is constant variance or homoscedasticity in residual. If p> 0.05 then accept H0.
+
+```{r}
+library(lmtest)
+data(unemp.df)
+unemp_numeric <- data.frame(ds = as.numeric(unemp.df$ds), y = unemp.df$y)
+model= lm(ds~y,data=unemp_numeric)
+bptest(model)
+
+```
+
+We have found that P value =0.05857 which is greater than 0.05 meaning that there is a constant variance. This suggests that our time series is not heteroskedastic thus it is not necessary to use Box-Cox or log transformation.
+
